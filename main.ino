@@ -23,6 +23,7 @@
 #define SEL_PIN       5
 #define CF1_PIN       13
 #define CF_PIN        14
+#define BUZZ          1
 
 #define TIMER 15 //sec
 #define UPDATE_TIME                     5000   // Check values every 10 seconds
@@ -119,8 +120,8 @@ void setup() {
     hlw8012.begin(CF_PIN, CF1_PIN, SEL_PIN, CURRENT_MODE, false, 500000);
     hlw8012.setResistors(CURRENT_RESISTOR, VOLTAGE_RESISTOR_UPSTREAM, VOLTAGE_RESISTOR_DOWNSTREAM);
     while (WiFi.status() != WL_CONNECTED) {
-        delay(100);
-        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+      delay(100);
+      digitalWrite(LED_PIN, !digitalRead(LED_PIN));
     }
     if (!client.connected()) {
       reconnect();
@@ -134,11 +135,19 @@ void loop() {
   if (millis() - prevMillis >= 1000 && timer > 0) {
     prevMillis = millis();
     timer = timer - 1;
-    if (timer <= 0) { timer = 0; }
-    if (digitalRead(RELAY_PIN) && client.connected()) {
-        client.publish("myhome/iron/timer", IntToChar(timer));
+    if (timer <= 0) {
+      timer = 0;
     }
-    if(timer == 0){
+    if (digitalRead(RELAY_PIN) && client.connected()) {
+      client.publish("myhome/iron/timer", IntToChar(timer));
+    }
+    if (timer < 10 && timer > 5) {
+      tone(BUZZ, 800);
+      delay(200);
+      noTone(BUZZ);
+      delay(200);
+    }
+    if (timer == 0) {
       digitalWrite(RELAY_PIN, LOW);
     } else {
       digitalWrite(RELAY_PIN, HIGH);
@@ -175,6 +184,10 @@ void loop() {
     buttontimer = millis();
   } else if (!digitalRead(BUTTON_PIN) && buttontimer != 0) {
     if (millis() - buttontimer > 20 && !wait_for_brelease) {
+      tone(BUZZ, 500);
+      delay(200);
+      noTone(BUZZ);
+      delay(200);
       timer = timer + TIMER;
       buttontimer = 0;
       wait_for_brelease = true;
@@ -211,7 +224,7 @@ void calibrate() {
   hlw8012.setMode(MODE_VOLTAGE);
   unblockingDelay(2000);
   hlw8012.getVoltage();
-  // Для коллибровки используем 60Вт лампу накаливания на 220В 
+  // Для коллибровки используем 60Вт лампу накаливания на 220В
   hlw8012.expectedActivePower(60.0); // Реальная мощность нагрузки
   hlw8012.expectedVoltage(238.9); //Реальное сетевое напряжение
   hlw8012.expectedCurrent(60.0 / 238.9); //Ток нагрузки
@@ -222,6 +235,6 @@ void calibrate() {
 }
 
 void unblockingDelay(unsigned long mseconds) {
-    unsigned long timeout = millis();
-    while ((millis() - timeout) < mseconds) delay(1);
+  unsigned long timeout = millis();
+  while ((millis() - timeout) < mseconds) delay(1);
 }
