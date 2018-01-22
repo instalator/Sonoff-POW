@@ -25,7 +25,7 @@
 #define CF_PIN        14
 #define BUZZ          1
 
-#define TIMER 15 //sec
+#define TIMER 900 //sec
 #define UPDATE_TIME                     5000   // Check values every 10 seconds
 #define CURRENT_MODE                    HIGH
 // Это номинальные значения для резисторов в цепи
@@ -88,8 +88,20 @@ void callback(char* topic, byte* payload, unsigned int length) {
       timer = TIMER;
     } else if (strPayload == "false") {
       timer = 0;
+      digitalWrite(RELAY_PIN, LOW);
+      client.publish("myhome/iron/timer", IntToChar(timer));
     }
     client.publish("myhome/iron/relay", IntToBool(digitalRead(RELAY_PIN)));
+  }
+  else if (strTopic == "myhome/iron/timer") {
+    int a = strPayload.toInt();
+    if (a < 0){
+        a = 0;
+    } else if (a > 32000){
+        a = 32000;
+    }
+    timer = a;
+    client.publish("myhome/iron/timer", IntToChar(timer));
   }
 }
 
@@ -141,7 +153,7 @@ void loop() {
     if (digitalRead(RELAY_PIN) && client.connected()) {
       client.publish("myhome/iron/timer", IntToChar(timer));
     }
-    if (timer < 10 && timer > 5) {
+    if (timer < 30 && timer > 25) {
       tone(BUZZ, 800);
       delay(200);
       noTone(BUZZ);
@@ -170,10 +182,10 @@ void loop() {
         float voltage_ = hlw8012.getVoltage();
         float current_ = hlw8012.getCurrent();
         float apparent_power_ = hlw8012.getApparentPower();
-        client.publish("myhome/iron/active_power", IntToChar(active_power_));
-        client.publish("myhome/iron/voltage", IntToChar(voltage_));
+        client.publish("myhome/iron/active_power", FloatToChar(active_power_));
+        client.publish("myhome/iron/voltage", FloatToChar(voltage_));
         client.publish("myhome/iron/current", FloatToChar(current_));
-        client.publish("myhome/iron/apparent_power", IntToChar(apparent_power_));
+        client.publish("myhome/iron/apparent_power", FloatToChar(apparent_power_));
         client.publish("myhome/iron/power_factor", FloatToChar((int) (100 * hlw8012.getPowerFactor())));
         lastmillis = millis();
         hlw8012.toggleMode();
