@@ -15,7 +15,7 @@
 #include <PubSubClient.h>
 #include <ArduinoOTA.h>
 
-#define CALIBRATE_RUN 0       // do calibration to determine the inital values    enable = 1, disable = 0
+#define CALIBRATE_RUN 0   //Выполните калибровку для определения начальных значений  вкл = 1, выкл = 0
 
 #define RELAY_PIN     12
 #define LED_PIN       15
@@ -25,9 +25,9 @@
 #define CF_PIN        14
 
 #define TIMER 15 //sec
-#define UPDATE_TIME                     10000   // Check values every 10 seconds
+#define UPDATE_TIME                     5000   // Check values every 10 seconds
 #define CURRENT_MODE                    HIGH
-// These are the nominal values for the resistors in the circuit
+// Это номинальные значения для резисторов в цепи
 #define CURRENT_RESISTOR                0.001
 #define VOLTAGE_RESISTOR_UPSTREAM       ( 5 * 470000 ) // Real: 2280k
 #define VOLTAGE_RESISTOR_DOWNSTREAM     ( 1000 ) // Real 1.009k
@@ -54,17 +54,6 @@ unsigned long lastmillis;
 unsigned long buttontimer;
 boolean wait_for_brelease = false;
 
-void hlw8012_cf1_interrupt() {
-  hlw8012.cf1_interrupt();
-}
-void hlw8012_cf_interrupt() {
-  hlw8012.cf_interrupt();
-}
-void setInterrupts() {
-  attachInterrupt(CF1_PIN, hlw8012_cf1_interrupt, CHANGE);
-  attachInterrupt(CF_PIN, hlw8012_cf_interrupt, CHANGE);
-}
-
 void setup_wifi() {
   delay(10);
   WiFi.mode(WIFI_STA);
@@ -78,11 +67,11 @@ void reconnect() {
   if (client.connect("iron")) {
     client.publish("myhome/iron/relay", IntToBool(digitalRead(RELAY_PIN)));
     client.publish("myhome/iron/timer", IntToChar(timer));
-    client.publish("myhome/iron/active_power", IntToChar(hlw8012.getActivePower()));
-    client.publish("myhome/iron/voltage", IntToChar(hlw8012.getVoltage()));
-    client.publish("myhome/iron/current", IntToChar(hlw8012.getCurrent()));
-    client.publish("myhome/iron/apparent_power", IntToChar(hlw8012.getApparentPower()));
-    client.publish("myhome/iron/power_factor", IntToChar((int) (100 * hlw8012.getPowerFactor())));
+    client.publish("myhome/iron/active_power", FloatToChar(hlw8012.getActivePower()));
+    client.publish("myhome/iron/voltage", FloatToChar(hlw8012.getVoltage()));
+    client.publish("myhome/iron/current", FloatToChar(hlw8012.getCurrent()));
+    client.publish("myhome/iron/apparent_power", FloatToChar(hlw8012.getApparentPower()));
+    client.publish("myhome/iron/power_factor", FloatToChar((int) (100 * hlw8012.getPowerFactor())));
     client.subscribe("myhome/iron/#");
     digitalWrite(LED_PIN, HIGH);
   }
@@ -121,7 +110,7 @@ void setup() {
   ArduinoOTA.begin();
 
   if (!run_cal) {
-    hlw8012.begin(CF_PIN, CF1_PIN, SEL_PIN, CURRENT_MODE, true);
+    hlw8012.begin(CF_PIN, CF1_PIN, SEL_PIN, CURRENT_MODE, false, 500000);
     hlw8012.setCurrentMultiplier(15409.09);
     hlw8012.setVoltageMultiplier(431876.50);
     hlw8012.setPowerMultiplier(11791717.38);
@@ -138,15 +127,11 @@ void setup() {
     }
     client.loop();
     calibrate();
-    //delay(60000);
-    //ESP.restart();
   }
-  setInterrupts();
 }
 
 void loop() {
-
-  if (millis() - prevMillis >= 1000) {
+  if (millis() - prevMillis >= 1000 && timer > 0) {
     prevMillis = millis();
     timer = timer - 1;
     if (timer <= 0) { timer = 0; }
@@ -172,11 +157,15 @@ void loop() {
         client.publish("myhome/iron/relay", IntToBool(digitalRead(RELAY_PIN)));
       }
       if (millis() - lastmillis > UPDATE_TIME) {
-        client.publish("myhome/iron/active_power", IntToChar(hlw8012.getActivePower()));
-        client.publish("myhome/iron/voltage", IntToChar(hlw8012.getVoltage()));
-        client.publish("myhome/iron/current", IntToChar(hlw8012.getCurrent()));
-        client.publish("myhome/iron/apparent_power", IntToChar(hlw8012.getApparentPower()));
-        client.publish("myhome/iron/power_factor", IntToChar((int) (100 * hlw8012.getPowerFactor())));
+        float active_power_ = hlw8012.getActivePower();
+        float voltage_ = hlw8012.getVoltage();
+        float current_ = hlw8012.getCurrent();
+        float apparent_power_ = hlw8012.getApparentPower();
+        client.publish("myhome/iron/active_power", IntToChar(active_power_));
+        client.publish("myhome/iron/voltage", IntToChar(voltage_));
+        client.publish("myhome/iron/current", FloatToChar(current_));
+        client.publish("myhome/iron/apparent_power", IntToChar(apparent_power_));
+        client.publish("myhome/iron/power_factor", FloatToChar((int) (100 * hlw8012.getPowerFactor())));
         lastmillis = millis();
         hlw8012.toggleMode();
       }
@@ -222,11 +211,11 @@ void calibrate() {
   hlw8012.setMode(MODE_VOLTAGE);
   unblockingDelay(2000);
   hlw8012.getVoltage();
-  // Calibrate using a 60W bulb (pure resistive) on a 230V line
-  hlw8012.expectedActivePower(60.0);
-  hlw8012.expectedVoltage(238.9);
-  hlw8012.expectedCurrent(60.0 / 238.9);
-  // Show corrected factors
+  // Для коллибровки используем 60Вт лампу накаливания на 220В 
+  hlw8012.expectedActivePower(60.0); // Реальная мощность нагрузки
+  hlw8012.expectedVoltage(238.9); //Реальное сетевое напряжение
+  hlw8012.expectedCurrent(60.0 / 238.9); //Ток нагрузки
+
   client.publish("myhome/iron/calibrate/current_multiplier", FloatToChar(hlw8012.getCurrentMultiplier()));
   client.publish("myhome/iron/calibrate/voltage_multiplier", FloatToChar(hlw8012.getVoltageMultiplier()));
   client.publish("myhome/iron/calibrate/power_multiplier",   FloatToChar(hlw8012.getPowerMultiplier()));
