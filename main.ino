@@ -25,7 +25,7 @@
 #define CF_PIN        14
 #define BUZZ          1
 
-#define TIMER 900 //sec
+#define TIMER 600 //sec
 #define UPDATE_TIME                     5000   // Check values every 10 seconds
 #define CURRENT_MODE                    HIGH
 // Это номинальные значения для резисторов в цепи
