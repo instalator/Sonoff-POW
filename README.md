@@ -1,4 +1,4 @@
-# Автоотключение утюга на основе Sonoff POW
+# Автоотключение утюга на базе Sonoff POW
 Sonoff POW MQTT timer
 
 Страница проекта https://blog.instalator.ru/archives/940
